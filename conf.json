@@ -1,0 +1,16 @@
+{
+    "camera_warmup_time": 2.5,
+    "flip_camera": 0,
+    "flip_video": 1,
+    "cv_width": 500,
+    "delta_threshold": 0.1,
+    "min_motion_factor": 0.2,
+    "max_motion_factor": 0.9,
+    "min_timelapse_frequency": 0.5,
+    "max_timelapse_frequency": 300,
+    "check_frequency": 1,
+    "timelapse_preview_speed": 0.5,
+    "canny_threshold": 50,
+    "canny_ratio": 4,
+    "canny_aperturesize": 3
+}
