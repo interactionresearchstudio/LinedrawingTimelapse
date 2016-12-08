@@ -129,8 +129,8 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             startRecording()
         if conf["flip_camera"] is 1:
             image = rotateImage(image)
-        image = convertToLineImage(image)
-        cv2.imshow("Output", image)
+        lines = convertToLineImage(image)
+        cv2.imshow("Output", lines)
         
     if mode is 1:
         # grab frame, resize and convert to gray
@@ -163,8 +163,8 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             fileName = "-%d.jpg" % imageIndex
             if conf["flip_video"] is 1:
                 image = rotateImage(image)
-            image = convertToLineImage(image)
-            cv2.imwrite(startPicture + fileName, image)
+            lines = convertToLineImage(image)
+            cv2.imwrite(startPicture + fileName, lines)
             imageIndex = imageIndex + 1
             previousPictureTime = currentTime
             print("[INFO] Picture saved.")
