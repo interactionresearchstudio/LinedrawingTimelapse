@@ -116,7 +116,6 @@ def compileTimelapse(filename):
 def convertToLineImage(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, conf["canny_threshold"],conf["canny_ratio"]*conf["canny_threshold"], apertureSize = conf["canny_aperturesize"])
-    cv2.putText(edges, str(nonZeros), (10,50), font, 1, (255), 2, cv2.LINE_AA)
     return edges
 
 def insertCentredText(img, txt):
