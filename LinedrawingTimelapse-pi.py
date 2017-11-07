@@ -119,11 +119,11 @@ def convertToLineImage(img):
     return edges
 
 def insertCentredText(img, txt):
-    textsize, _ = cv2.getTextSize(txt, font, 0.5, 2)
+    textsize, _ = cv2.getTextSize(txt, font, 0.5, 1)
     h, w = img.shape[:2]
     xPos = (w - textsize[0]) / 2
     yPos = (h - textsize[1]) / 2
-    cv2.putText(img, txt, (xPos, yPos), font, 0.5, (255), 2, cv2.LINE_AA)
+    cv2.putText(img, txt, (xPos, yPos), font, 0.5, (255), 1, cv2.LINE_AA)
     return img
 
 # main cv loop
