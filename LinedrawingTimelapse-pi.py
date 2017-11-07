@@ -117,7 +117,7 @@ def convertToLineImage(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, conf["canny_threshold"],conf["canny_ratio"]*conf["canny_threshold"], apertureSize = conf["canny_aperturesize"])
     nonZeros = cv2.countNonZero(edges)
-    cv2.putText(edges, nonZeros, (10,10), font, 4, (255), 2, cv2.LINE_AA)
+    cv2.putText(edges, str(nonZeros), (10,10), font, 4, (255), 2, cv2.LINE_AA)
     return edges
 
 # main cv loop
