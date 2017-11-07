@@ -116,9 +116,15 @@ def compileTimelapse(filename):
 def convertToLineImage(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, conf["canny_threshold"],conf["canny_ratio"]*conf["canny_threshold"], apertureSize = conf["canny_aperturesize"])
-    nonZeros = cv2.countNonZero(edges)
     cv2.putText(edges, str(nonZeros), (10,50), font, 1, (255), 2, cv2.LINE_AA)
     return edges
+
+def insertCentredText(img, txt):
+    textsize = cv2.getTextSize(txt, font, 2, 2)
+    xPos = (img.shape[1] - textsize[0]) / 2
+    yPos = (img.shape[0] - textsize[1]) / 2
+    cv2.putText(img, txt, (xPos, yPos), font, 2, (255), 2, cv2.LINE_AA)
+    return img
 
 # main cv loop
 for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -134,6 +140,9 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         if conf["flip_camera"] is 1:
             image = rotateImage(image)
         lines = convertToLineImage(image)
+        nonZeros = cv2.countNonZero(edges)
+        if nonZeros == 0:
+            insertCentredText(lines, "Open peephole to start recording")
         cv2.imshow("Output", lines)
         
     if mode is 1:
