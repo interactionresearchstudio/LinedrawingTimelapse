@@ -142,7 +142,7 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         lines = convertToLineImage(image)
         nonZeros = cv2.countNonZero(lines)
         if nonZeros == 0:
-            insertCentredText(lines, "Open peephole to start recording")
+            insertCentredText(lines, "Open peephole\r\nto start recording")
         cv2.imshow("Output", lines)
         
     if mode is 1:
