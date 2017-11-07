@@ -140,7 +140,7 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         if conf["flip_camera"] is 1:
             image = rotateImage(image)
         lines = convertToLineImage(image)
-        nonZeros = cv2.countNonZero(edges)
+        nonZeros = cv2.countNonZero(lines)
         if nonZeros == 0:
             insertCentredText(lines, "Open peephole to start recording")
         cv2.imshow("Output", lines)
