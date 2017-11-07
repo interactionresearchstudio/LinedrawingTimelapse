@@ -58,7 +58,7 @@ numOfPhotos = 0
 # 2 - Stopped
 mode = 0
 
-font = cv2.FONT_HERSHEY_COMPLEX_SMALL
+font = cv2.FONT_HERSHEY_SIMPLEX
 
 # map
 def mapFactor(x, in_min, in_max, out_min, out_max):
@@ -119,11 +119,11 @@ def convertToLineImage(img):
     return edges
 
 def insertCentredText(img, txt):
-    textsize, _ = cv2.getTextSize(txt, font, 1, 2)
+    textsize, _ = cv2.getTextSize(txt, font, 0.5, 2)
     h, w = img.shape[:2]
     xPos = (w - textsize[0]) / 2
     yPos = (h - textsize[1]) / 2
-    cv2.putText(img, txt, (xPos, yPos), font, 1, (255), 2, cv2.LINE_AA)
+    cv2.putText(img, txt, (xPos, yPos), font, 0.5, (255), 2, cv2.LINE_AA)
     return img
 
 # main cv loop
