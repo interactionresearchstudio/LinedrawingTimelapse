@@ -150,6 +150,7 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         nonZeros = cv2.countNonZero(lines)
         if nonZeros == 0:
             insertCentredText(lines, "Open peephole to start recording")
+            countdown = -1
         else:
             global countdown
             if countdown is -1:
