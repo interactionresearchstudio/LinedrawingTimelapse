@@ -129,7 +129,7 @@ def insertCentredText(img, txt, onRectangle=False):
     xPos = (w - textsize[0]) / 2
     yPos = (h - textsize[1]) / 2
     if onRectangle is True:
-        cv2.rectangle(img, (xPos - 1, yPos - 1), (xPos + textsize[0] + 1, yPos + textsize[1] + 1), (0), -1)
+        cv2.rectangle(img, (xPos - 1, yPos - textsize[1]), (xPos + textsize[0] + 1, yPos + 1), (0), -1)
     cv2.putText(img, txt, (xPos, yPos), font, 0.5, (255), 1, cv2.LINE_AA)
     return img
 
