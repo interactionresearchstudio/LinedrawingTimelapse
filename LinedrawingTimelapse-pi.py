@@ -123,11 +123,13 @@ def convertToLineImage(img):
                       apertureSize = conf["canny_aperturesize"])
     return edges
 
-def insertCentredText(img, txt):
+def insertCentredText(img, txt, onRectangle=False):
     textsize, _ = cv2.getTextSize(txt, font, 0.5, 1)
     h, w = img.shape[:2]
     xPos = (w - textsize[0]) / 2
     yPos = (h - textsize[1]) / 2
+    if onRectangle is True:
+        cv2.rectangle(img, (xPos - 1, yPos - 1), (xPos + w + 1, yPos + h + 1), (255), -1)
     cv2.putText(img, txt, (xPos, yPos), font, 0.5, (255), 1, cv2.LINE_AA)
     return img
 
@@ -153,7 +155,7 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             if countdown is -1:
                 countdown = conf["countdown"]
             elif countdown > 0:
-                insertCentredText(lines, "Starting in " + str(countdown))
+                insertCentredText(lines, "Starting in " + str(countdown), onRectangle=True)
                 currentTime = time.time()
                 if currentTime - previousCountdownTime >= 1:
                     countdown = countdown - 1
