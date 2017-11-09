@@ -227,8 +227,10 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 
         nonZeros = cv2.countNonZero(lines)
         if nonZeros == 0:
+            global countdown
             stopRecording()
             mode = 0
+            countdown = -1
             time.sleep(0.5)
 
     if mode is 2:
