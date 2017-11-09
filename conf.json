@@ -10,6 +10,7 @@
     "max_timelapse_frequency": 300,
     "check_frequency": 1,
     "timelapse_preview_speed": 0.5,
+    "countdown": 10,
     "canny_threshold": 50,
     "canny_ratio": 4,
     "canny_aperturesize": 3

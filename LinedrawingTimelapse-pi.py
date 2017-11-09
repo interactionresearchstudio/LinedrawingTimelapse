@@ -51,6 +51,8 @@ startPicture = ""
 imageIndex = 0
 timelapseIndex = 0
 numOfPhotos = 0
+countdown = -1
+previousCountdownTime = 0
 
 # modes:
 # 0 - Standby
@@ -110,12 +112,15 @@ def rotateImage(img):
     return cv2.warpAffine(img, M, (w,h))
 
 def compileTimelapse(filename):
-    command = "gst-launch-1.0 multifilesrc location=" + filename + "-%d.jpg index=1 caps='image/jpeg,framerate=4/1' ! jpegdec ! omxh264enc ! avimux ! filesink location=" + filename + ".avi"
+    command = "gst-launch-1.0 multifilesrc location=" + filename + \
+              "-%d.jpg index=1 caps='image/jpeg,framerate=4/1' ! jpegdec ! omxh264enc ! avimux ! filesink location=" + \
+              filename + ".avi"
     os.system(command)
 
 def convertToLineImage(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, conf["canny_threshold"],conf["canny_ratio"]*conf["canny_threshold"], apertureSize = conf["canny_aperturesize"])
+    edges = cv2.Canny(gray, conf["canny_threshold"],conf["canny_ratio"]*conf["canny_threshold"],
+                      apertureSize = conf["canny_aperturesize"])
     return edges
 
 def insertCentredText(img, txt):
@@ -143,12 +148,26 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
         nonZeros = cv2.countNonZero(lines)
         if nonZeros == 0:
             insertCentredText(lines, "Open peephole to start recording")
+        else:
+            global countdown
+            if countdown is -1:
+                countdown = conf["countdown"]
+            elif countdown > 0:
+                insertCentredText(lines, "Starting in " + str(countdown))
+                currentTime = time.time()
+                if currentTime - previousCountdownTime >= 1:
+                    countdown = countdown - 1
+                    previousCountdownTime = currentTime
+            elif countdown is 0:
+                startRecording()
+
         cv2.imshow("Output", lines)
         
     if mode is 1:
         # grab frame, resize and convert to gray
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21,21), 0)
+        lines = convertToLineImage(image)
 
         # capture first frame of background model
         if avg is None:
@@ -167,7 +186,8 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             motionFactor = conf["max_motion_factor"]
 
         # change picture frequency
-        pictureFrequency = mapFactor(motionFactor, conf["min_motion_factor"], conf["max_motion_factor"], conf["min_timelapse_frequency"], conf["max_timelapse_frequency"])
+        pictureFrequency = mapFactor(motionFactor, conf["min_motion_factor"], conf["max_motion_factor"],
+                                     conf["min_timelapse_frequency"], conf["max_timelapse_frequency"])
 
         #print("[CALC] Picture frequency: %f") % pictureFrequency
 
@@ -200,6 +220,12 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             # start recording. 
             stopRecording()
             #showTimelapse()
+            mode = 0
+            time.sleep(0.5)
+
+        nonZeros = cv2.countNonZero(lines)
+        if nonZeros == 0:
+            stopRecording()
             mode = 0
             time.sleep(0.5)
 
