@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-#define pi
 
 import cv2
 import imutils
 from imutils.video.pivideostream import PiVideoStream
+import numpy as np
 import json
 import time
+import datetime
 import os
 from threading import Thread
 
@@ -13,23 +14,28 @@ from threading import Thread
 class LinedrawingTimelapse(Thread):
 
     def __init__(self, configuration):
-        super().__init__()
         self.cancelled = False
 
         self.config = configuration
-
-        # Start video stream.
-        self.vs = PiVideoStream().start()
-        time.sleep(self.config["camera_warmup_time"])
 
         # Create full screen OpenCV window.
         cv2.namedWindow("Output", cv2.WND_PROP_FULLSCREEN)
         cv2.setWindowProperty("Output", cv2.WND_PROP_FULLSCREEN, 1)
 
+        # Start video stream.
+        self.vs = PiVideoStream().start()
+        time.sleep(self.config["camera_warmup_time"])
+
         self.mode = 0
         self.lines = None
         self.avg = None
         self.is_recording = False
+        self.last_capture_time = time.time()
+        self.last_preview_time = time.time()
+        self.capture_index = 0
+        self.preview_index = 0
+        self.first_capture = None
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
 
     def run(self):
         while not self.cancelled:
@@ -47,12 +53,31 @@ class LinedrawingTimelapse(Thread):
         if self.config["flip_video"] is 1:
             frame = imutils.rotate(frame, angle=180)
 
+        if self.config["mirror_camera"] is 1:
+            frame = cv2.flip(frame, 1)
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         self.lines = imutils.auto_canny(gray)
 
+        if self.mode is 0:
+            self.standby(gray)
+
+        elif self.mode is 1:
+            # starting...
+            if self.is_peephole_open(gray) is False:
+                self.mode = 0
+
+        elif self.mode is 2:
+            # recording...
+            print("Recording...")
+            if self.is_peephole_open(gray) is False:
+                self.mode = 0
+
         cv2.imshow("Output", self.lines)
 
-    def detect_timelapse_frequency(self, img):
+        cv2.waitKey(10)
+
+    def get_timelapse_frequency(self, img):
         img = cv2.GaussianBlur(img, (21, 21), 0)
 
         if self.avg is None:
@@ -67,16 +92,70 @@ class LinedrawingTimelapse(Thread):
         return self.map_factor(motion_factor, self.config["min_motion_factor"], self.config["max_motion_factor"],
                           self.config["min_timelapse_frequency"], self.config["max_timelapse_frequency"])
 
-    def record(self, img):
-        print("Recording...")
-        # record some stuff.
-        # check timelapse frequency
-        # take photo if it's time.
-        # loop through photos.
+    def standby(self, img):
+        output = np.zeros((320, 240, 3), np.uint8)
+        output = self.insert_centered_text(output, "Open peephole to start recording.")
+        cv2.imshow("Output", output)
 
-    def preview(self, img):
+        if self.is_peephole_open(img) is True:
+            self.mode = 1
+
+
+    def recording(self, img):
+        # get current timelapse frequency
+        timelapse_frequency = self.get_timelapse_frequency(img)
+
+        # define first capture file name
+        if self.first_capture is None:
+            timestamp = datetime.datetime.now()
+            self.first_capture = timestamp.strftime('%Y-%m-%d-%H-%M-%S')
+
+        # capture frame
+        current_time = time.time()
+        if current_time - self.last_capture_time >= timelapse_frequency:
+            file_name = "-%d.jpg" % self.capture_index
+            cv2.imwrite(self.first_capture + file_name, self.lines)
+            self.capture_index = self.capture_index + 1
+            self.last_capture_time = current_time
+
+        # display preview image
+        if current_time - self.last_preview_time >= self.config["timelapse_preview_speed"] and self.capture_index > 1:
+            if self.preview_index > self.capture_index-1:
+                self.preview_index = 0
+
+            current_file = self.first_capture + "-%d.jpg" % self.preview_index
+            current_frame = cv2.imread(current_file, cv2.IMREAD_COLOR)
+            cv2.imshow("Output", current_frame)
+            self.preview_index = self.preview_index + 1
+            self.last_preview_time = current_time
+
+        if self.is_peephole_open(img) is True:
+            self.first_capture = None
+            self.mode = 0
+
+    def starting(self, img):
         print("Previewing...")
         # preview the image before the
+
+    def is_peephole_open(self, g):
+        fixed_lines = cv2.Canny(g, self.conf["canny_threshold"], self.conf["canny_ratio"] * self.conf["canny_threshold"],
+                          apertureSize=self.conf["canny_aperturesize"])
+        non_zeros = cv2.countNonZero(fixed_lines)
+
+        if non_zeros == 0:
+            return True
+        else:
+            return False
+
+    def insert_centered_text(self, img, txt, onRectangle=False, size=0.5, stroke=1):
+        textsize, _ = cv2.getTextSize(txt, self.font, size, stroke)
+        h, w = img.shape[:2]
+        xPos = (w - textsize[0]) / 2
+        yPos = (h - textsize[1]) / 2
+        if onRectangle is True:
+            cv2.rectangle(img, (xPos - 1, yPos - textsize[1]), (xPos + textsize[0] + 1, yPos + 1), (0), -1)
+        cv2.putText(img, txt, (xPos, yPos), self.font, size, (255), stroke, cv2.LINE_AA)
+        return img
 
     @staticmethod
     def constrain(val, min_val, max_val):
@@ -87,15 +166,14 @@ class LinedrawingTimelapse(Thread):
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
-# load configuration file
-os.chdir("/home/pi/LinedrawingTimelapse")
-conf = json.load(open("conf.json"))
-
 def main():
     os.chdir("/home/pi/LinedrawingTimelapse")
-    config = json.load(open("config.json"))
-    timelapseInstance = LinedrawingTimelapse(config)
+    config = json.load(open("conf.json"))
 
+    print("[INFO] Started main.")
+
+    timelapseInstance = LinedrawingTimelapse(config)
+    timelapseInstance.run()
 
 if __name__ == '__main__':
     main()

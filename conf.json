@@ -1,7 +1,7 @@
 {
     "camera_warmup_time": 2.5,
-    "flip_camera": 0,
-    "flip_video": 1,
+    "mirror_camera": 1,
+    "flip_video": 0,
     "cv_width": 500,
     "delta_threshold": 0.1,
     "min_motion_factor": 0.2,
