@@ -32,9 +32,11 @@ class LinedrawingTimelapse(Thread):
         self.is_recording = False
         self.last_capture_time = time.time()
         self.last_preview_time = time.time()
+        self.last_countdown_time = time.time()
         self.capture_index = 0
         self.preview_index = 0
         self.first_capture = None
+        self.countdown = None
         self.font = cv2.FONT_HERSHEY_SIMPLEX
 
     def run(self):
@@ -63,13 +65,12 @@ class LinedrawingTimelapse(Thread):
             self.standby(gray)
 
         elif self.mode is 1:
-            # starting...
+            self.starting(gray)
             if self.is_peephole_open(gray) is False:
                 self.mode = 0
 
         elif self.mode is 2:
-            # recording...
-            print("Recording...")
+            self.recording(gray)
             if self.is_peephole_open(gray) is False:
                 self.mode = 0
 
@@ -100,6 +101,23 @@ class LinedrawingTimelapse(Thread):
         if self.is_peephole_open(img) is True:
             self.mode = 1
 
+    def starting(self, img):
+        # preview the image before the
+        if self.countdown is None:
+            self.countdown = self.config["countdown"]
+        elif self.countdown > 0:
+            img = self.insert_centered_text(img, "Starting in " + str(self.countdown), on_rectangle=True)
+            current_time = time.time()
+            if current_time - self.last_countdown_time >= 1:
+                self.countdown = self.countdown - 1
+                self.last_countdown_time = current_time
+        elif self.countdown is 0:
+            self.countdown = None
+            self.mode = 2
+
+        if self.is_peephole_open(img) is True:
+            self.countdown = None
+            self.mode = 0
 
     def recording(self, img):
         # get current timelapse frequency
@@ -133,10 +151,6 @@ class LinedrawingTimelapse(Thread):
             self.first_capture = None
             self.mode = 0
 
-    def starting(self, img):
-        print("Previewing...")
-        # preview the image before the
-
     def is_peephole_open(self, g):
         fixed_lines = cv2.Canny(g, self.conf["canny_threshold"], self.conf["canny_ratio"] * self.conf["canny_threshold"],
                           apertureSize=self.conf["canny_aperturesize"])
@@ -147,7 +161,7 @@ class LinedrawingTimelapse(Thread):
         else:
             return False
 
-    def insert_centered_text(self, img, txt, onRectangle=False, size=0.5, stroke=1):
+    def insert_centered_text(self, img, txt, on_rectangle=False, size=0.5, stroke=1):
         textsize, _ = cv2.getTextSize(txt, self.font, size, stroke)
         h, w = img.shape[:2]
         xPos = (w - textsize[0]) / 2
