@@ -8,6 +8,7 @@ import json
 import time
 import datetime
 import os
+import subprocess
 from threading import Thread
 
 
@@ -74,27 +75,11 @@ class LinedrawingTimelapse(Thread):
             if self.is_peephole_open(gray) is False:
                 self.mode = 0
 
-        cv2.imshow("Output", self.lines)
-
         cv2.waitKey(10)
 
-    def get_timelapse_frequency(self, img):
-        img = cv2.GaussianBlur(img, (21, 21), 0)
-
-        if self.avg is None:
-            self.avg = img.copy().astype("float")
-
-        cv2.accumulateWeighted(img, self.avg, self.config["delta_threshold"])
-        frame_delta = cv2.absdiff(img, cv2.convertScaleAbs(self.avg))
-        motion_factor = 1 - ((cv2.countNonZero(frame_delta) + 0.0) / (frame_delta.shape[0] * frame_delta.shape[1]))
-        motion_factor = self.constrain(motion_factor, self.config["min_motion_factor"],
-                                       self.config["max_motion_factor"])
-
-        return self.map_factor(motion_factor, self.config["min_motion_factor"], self.config["max_motion_factor"],
-                          self.config["min_timelapse_frequency"], self.config["max_timelapse_frequency"])
 
     def standby(self, img):
-        output = np.zeros((320, 240, 3), np.uint8)
+        output = np.zeros((240, 320, 1), np.uint8)
         output = self.insert_centered_text(output, "Open peephole to start recording.")
         cv2.imshow("Output", output)
 
@@ -102,11 +87,12 @@ class LinedrawingTimelapse(Thread):
             self.mode = 1
 
     def starting(self, img):
+        output = self.lines
         # preview the image before the
         if self.countdown is None:
             self.countdown = self.config["countdown"]
         elif self.countdown > 0:
-            img = self.insert_centered_text(img, "Starting in " + str(self.countdown), on_rectangle=True)
+            output = self.insert_centered_text(output, "Starting in " + str(self.countdown), on_rectangle=True)
             current_time = time.time()
             if current_time - self.last_countdown_time >= 1:
                 self.countdown = self.countdown - 1
@@ -115,9 +101,12 @@ class LinedrawingTimelapse(Thread):
             self.countdown = None
             self.mode = 2
 
-        if self.is_peephole_open(img) is True:
+        cv2.imshow("Output", output)
+
+        if self.is_peephole_open(img) is False:
             self.countdown = None
             self.mode = 0
+
 
     def recording(self, img):
         # get current timelapse frequency
@@ -147,29 +136,67 @@ class LinedrawingTimelapse(Thread):
             self.preview_index = self.preview_index + 1
             self.last_preview_time = current_time
 
-        if self.is_peephole_open(img) is True:
+        if self.is_peephole_open(img) is False:
+            self.save_mp4(self.first_capture)
             self.first_capture = None
             self.mode = 0
 
     def is_peephole_open(self, g):
-        fixed_lines = cv2.Canny(g, self.conf["canny_threshold"], self.conf["canny_ratio"] * self.conf["canny_threshold"],
-                          apertureSize=self.conf["canny_aperturesize"])
+        fixed_lines = cv2.Canny(g, self.config["canny_threshold"], self.config["canny_ratio"] * self.config["canny_threshold"],
+                          apertureSize=self.config["canny_aperturesize"])
         non_zeros = cv2.countNonZero(fixed_lines)
 
         if non_zeros == 0:
-            return True
-        else:
             return False
+        else:
+            return True
+
+    def get_timelapse_frequency(self, img):
+        img = cv2.GaussianBlur(img, (21, 21), 0)
+
+        if self.avg is None:
+            self.avg = img.copy().astype("float")
+
+        cv2.accumulateWeighted(img, self.avg, self.config["delta_threshold"])
+        frame_delta = cv2.absdiff(img, cv2.convertScaleAbs(self.avg))
+        motion_factor = 1 - ((cv2.countNonZero(frame_delta) + 0.0) / (frame_delta.shape[0] * frame_delta.shape[1]))
+        motion_factor = self.constrain(motion_factor, self.config["min_motion_factor"],
+                                       self.config["max_motion_factor"])
+
+        return self.map_factor(motion_factor, self.config["min_motion_factor"], self.config["max_motion_factor"],
+                               self.config["min_timelapse_frequency"], self.config["max_timelapse_frequency"])
 
     def insert_centered_text(self, img, txt, on_rectangle=False, size=0.5, stroke=1):
         textsize, _ = cv2.getTextSize(txt, self.font, size, stroke)
         h, w = img.shape[:2]
         xPos = (w - textsize[0]) / 2
         yPos = (h - textsize[1]) / 2
-        if onRectangle is True:
+        if on_rectangle is True:
             cv2.rectangle(img, (xPos - 1, yPos - textsize[1]), (xPos + textsize[0] + 1, yPos + 1), (0), -1)
         cv2.putText(img, txt, (xPos, yPos), self.font, size, (255), stroke, cv2.LINE_AA)
         return img
+
+    def save_mp4(self, f):
+        subprocess.Popen(["avconv", "-r", "2", "-start_number", "1", "-i", f + "-%d.jpg", "-b:v",
+                          "1000k", f + ".mp4"])
+
+    @staticmethod
+    def paste_png(base, overlay_filename):
+        overlay = cv2.imread(overlay_filename, -1)
+        overlay_bgr = overlay[:, :, :3]
+        overlay_mask = overlay[:, :, 3:]
+
+        # inverse mask
+        bg_mask = 255 - overlay_mask
+
+        # turn masks into three channel masks
+        overlay_mask = cv2.cvtColor(overlay_mask, cv2.COLOR_GRAY2BGR)
+        bg_mask = cv2.cvtColor(bg_mask, cv2.COLOR_GRAY2BGR)
+
+        base_part = (base * (1 / 255.0)) * (bg_mask * (1 / 255.0))
+        overlay_part = (overlay_bgr * (1 / 255.0)) * (overlay_mask * (1 / 255.0))
+
+        return np.uint8(cv2.addWeighted(base_part, 255.0, overlay_part, 255.0, 0.0))
 
     @staticmethod
     def constrain(val, min_val, max_val):
