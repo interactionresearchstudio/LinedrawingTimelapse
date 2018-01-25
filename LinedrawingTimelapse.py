@@ -9,6 +9,7 @@ import time
 import datetime
 import os
 import subprocess
+import RPi.GPIO as GPIO
 from threading import Thread
 
 
@@ -30,6 +31,7 @@ class LinedrawingTimelapse(Thread):
         self.mode = 0
         self.lines = None
         self.avg = None
+        self.canny_offset = 0
         self.is_recording = False
         self.last_capture_time = time.time()
         self.last_preview_time = time.time()
@@ -38,7 +40,24 @@ class LinedrawingTimelapse(Thread):
         self.preview_index = 0
         self.first_capture = None
         self.countdown = None
+        self.showing_live = False
+        self.live_start_time = time.time()
         self.font = cv2.FONT_HERSHEY_SIMPLEX
+
+        # Setup buttons
+        self.btn1 = 17
+        self.btn2 = 22
+        self.btn3 = 23
+        self.btn4 = 27
+        self.btn_main = self.btn1
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(self.btn1, GPIO.IN, GPIO.PUD_UP)
+        GPIO.setup(self.btn2, GPIO.IN, GPIO.PUD_UP)
+        GPIO.setup(self.btn3, GPIO.IN, GPIO.PUD_UP)
+        GPIO.setup(self.btn4, GPIO.IN, GPIO.PUD_UP)
+
+        self.anim_lenscap = ["assets/lensecap_white_1.png", "assets/lensecap_white_2.png"]
 
     def run(self):
         while not self.cancelled:
@@ -53,14 +72,11 @@ class LinedrawingTimelapse(Thread):
         frame = self.vs.read()
         frame = imutils.resize(frame, width=320, height=240)
 
-        if self.config["flip_video"] is 1:
-            frame = imutils.rotate(frame, angle=180)
-
         if self.config["mirror_camera"] is 1:
             frame = cv2.flip(frame, 1)
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        self.lines = imutils.auto_canny(gray)
+        self.lines = self.auto_canny(gray, offset=self.canny_offset)
 
         if self.mode is 0:
             self.standby(gray)
@@ -80,7 +96,13 @@ class LinedrawingTimelapse(Thread):
 
     def standby(self, img):
         output = np.zeros((240, 320, 1), np.uint8)
-        output = self.insert_centered_text(output, "Open peephole to start recording.")
+        # output = self.insert_centered_text(output, "Open peephole to start recording.")
+
+        current_anim_frame = int(time.time() % 2)
+        output = self.paste_png(output, self.anim_lenscap[current_anim_frame])
+
+        if self.config["flip_video"] is 1:
+            output = imutils.rotate(output, angle=180)
         cv2.imshow("Output", output)
 
         if self.is_peephole_open(img) is True:
@@ -101,6 +123,8 @@ class LinedrawingTimelapse(Thread):
             self.countdown = None
             self.mode = 2
 
+        if self.config["flip_video"] is 1:
+            output = imutils.rotate(output, angle=180)
         cv2.imshow("Output", output)
 
         if self.is_peephole_open(img) is False:
@@ -117,8 +141,9 @@ class LinedrawingTimelapse(Thread):
             timestamp = datetime.datetime.now()
             self.first_capture = timestamp.strftime('%Y-%m-%d-%H-%M-%S')
 
-        # capture frame
         current_time = time.time()
+
+        # capture frame
         if current_time - self.last_capture_time >= timelapse_frequency:
             file_name = "-%d.jpg" % self.capture_index
             cv2.imwrite(self.first_capture + file_name, self.lines)
@@ -132,12 +157,48 @@ class LinedrawingTimelapse(Thread):
 
             current_file = self.first_capture + "-%d.jpg" % self.preview_index
             current_frame = cv2.imread(current_file, cv2.IMREAD_COLOR)
-            cv2.imshow("Output", current_frame)
+            if self.config["flip_video"] is 1:
+                current_frame = imutils.rotate(current_frame, angle=180)
+
+            if self.showing_live is False:
+                cv2.imshow("Output", current_frame)
+
             self.preview_index = self.preview_index + 1
             self.last_preview_time = current_time
 
+        # show / hide live image
+        if GPIO.input(self.btn_main) == False:
+            self.showing_live = not self.showing_live
+            self.live_start_time = current_time
+            time.sleep(0.2)
+
+        if self.showing_live is True:
+            live_frame = self.lines
+            if self.config["flip_video"] is 1:
+                live_frame = imutils.rotate(live_frame, angle=180)
+            cv2.imshow("Output", live_frame)
+
+            # adjust auto canny
+            if GPIO.input(self.btn2) == False:
+                self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
+                self.live_start_time = time.time()
+                time.sleep(0.1)
+            elif GPIO.input(self.btn4) == False:
+                self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
+                self.live_start_time = time.time()
+                time.sleep(0.1)
+            elif GPIO.input(self.btn3) == False:
+                self.canny_offset = 0
+                self.live_start_time = time.time()
+                time.sleep(0.1)
+
+            if current_time - self.live_start_time >= self.config["live_timeout"]:
+                self.showing_live = False
+
         if self.is_peephole_open(img) is False:
             self.save_mp4(self.first_capture)
+            self.showing_live = False
+            self.canny_offset = 0
             self.first_capture = None
             self.mode = 0
 
@@ -146,7 +207,7 @@ class LinedrawingTimelapse(Thread):
                           apertureSize=self.config["canny_aperturesize"])
         non_zeros = cv2.countNonZero(fixed_lines)
 
-        if non_zeros == 0:
+        if non_zeros <= self.config["peephole_threshold"]:
             return False
         else:
             return True
@@ -179,6 +240,17 @@ class LinedrawingTimelapse(Thread):
     def save_mp4(self, f):
         subprocess.Popen(["avconv", "-r", "2", "-start_number", "1", "-i", f + "-%d.jpg", "-b:v",
                           "1000k", f + ".mp4"])
+
+    def auto_canny(self, image, offset=0, sigma=0.33):
+        v = np.median(image) + offset
+        v = self.constrain(v, 0, 255)
+        print(v)
+
+        lower = int(max(0, (1.0 - sigma) * v))
+        upper = int(min(255, (1.0 + sigma) * v))
+        edged = cv2.Canny(image, lower, upper)
+
+        return edged
 
     @staticmethod
     def paste_png(base, overlay_filename):
