@@ -146,7 +146,8 @@ class LinedrawingTimelapse(Thread):
         # capture frame
         if current_time - self.last_capture_time >= timelapse_frequency:
             file_name = "-%d.jpg" % self.capture_index
-            cv2.imwrite(self.first_capture + file_name, self.lines)
+            if self.showing_live is False:
+                cv2.imwrite(self.first_capture + file_name, self.lines)
             self.capture_index = self.capture_index + 1
             self.last_capture_time = current_time
 
