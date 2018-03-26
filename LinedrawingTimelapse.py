@@ -41,6 +41,7 @@ class LinedrawingTimelapse(Thread):
         self.first_capture = None
         self.countdown = None
         self.showing_live = False
+        self.current_info_text = None
         self.live_start_time = time.time()
         self.font = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -160,7 +161,7 @@ class LinedrawingTimelapse(Thread):
             file_name = "-%d.jpg" % self.capture_index
             if self.showing_live is False:
                 cv2.imwrite(self.first_capture + file_name, self.lines)
-            self.capture_index = self.capture_index + 1
+                self.capture_index = self.capture_index + 1
             self.last_capture_time = current_time
 
         # display preview image
@@ -186,26 +187,45 @@ class LinedrawingTimelapse(Thread):
             self.live_start_time = current_time
             time.sleep(0.2)
 
+        # live mode
         if self.showing_live is True:
             live_frame = self.lines
-            if self.config["flip_video"] is 1:
-                live_frame = imutils.rotate(live_frame, angle=180)
-            cv2.imshow("Output", live_frame)
+
+            # display live image
+            if self.lines is not None:
+                live_frame = cv2.cvtColor(live_frame, cv2.COLOR_GRAY2BGR)
+
+                # show info text
+                if current_time - self.live_start_time <= self.config["info_text_timeout"]:
+                    if self.current_info_text is not None:
+                        live_frame = self.paste_png(live_frame, self.current_info_text)
+                else:
+                    self.current_info_text = None
+                    live_frame = self.paste_png(live_frame, self.graphic_live_preview)
+
+                # show live image
+                if self.config["flip_video"] is 1:
+                    live_frame = imutils.rotate(live_frame, angle=180)
+                cv2.imshow("Output", live_frame)
 
             # adjust auto canny
             if GPIO.input(self.btn2) == False:
                 self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
+                self.current_info_text = self.graphic_less_lines
                 self.live_start_time = time.time()
                 time.sleep(0.1)
             elif GPIO.input(self.btn4) == False:
                 self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
+                self.current_info_text = self.graphic_more_lines
                 self.live_start_time = time.time()
                 time.sleep(0.1)
             elif GPIO.input(self.btn3) == False:
                 self.canny_offset = 0
+                self.current_info_text = self.graphic_default_lines
                 self.live_start_time = time.time()
                 time.sleep(0.1)
 
+            # timeout live mode
             if current_time - self.live_start_time >= self.config["live_timeout"]:
                 self.showing_live = False
 
