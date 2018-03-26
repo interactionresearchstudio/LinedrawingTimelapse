@@ -58,6 +58,12 @@ class LinedrawingTimelapse(Thread):
         GPIO.setup(self.btn4, GPIO.IN, GPIO.PUD_UP)
 
         self.anim_lenscap = ["assets/lensecap_white_1.png", "assets/lensecap_white_2.png"]
+        self.anim_starting = ["assets/recording_in_1.png", "assets/recording_in_2.png", "assets/recording_in_3.png",
+                              "assets/recording_in_4.png", "assets/recording_in_5.png"]
+        self.graphic_default_lines = "assets/default_lines.png"
+        self.graphic_less_lines = "assets/less_lines.png"
+        self.graphic_more_lines = "assets/more_lines.png"
+        self.graphic_live_preview = "assets/live_preview.png"
 
     def run(self):
         while not self.cancelled:
@@ -110,16 +116,22 @@ class LinedrawingTimelapse(Thread):
 
     def starting(self, img):
         output = self.lines
-        # preview the image before the
         if self.countdown is None:
+            # start countdown
             self.countdown = self.config["countdown"]
         elif self.countdown > 0:
-            output = self.insert_centered_text(output, "Starting in " + str(self.countdown), on_rectangle=True)
             current_time = time.time()
+            current_anim_frame = self.countdown - 1
+            if output is not None and current_anim_frame < len(self.anim_starting) is not None:
+                # display countdown
+                output = cv2.cvtColor(output, cv2.COLOR_GRAY2BGR)
+                output = self.paste_png(output, self.anim_starting[current_anim_frame])
             if current_time - self.last_countdown_time >= 1:
+                # iterate countdown clock
                 self.countdown = self.countdown - 1
                 self.last_countdown_time = current_time
         elif self.countdown is 0:
+            # end countdown
             self.countdown = None
             self.mode = 2
 
@@ -158,11 +170,12 @@ class LinedrawingTimelapse(Thread):
 
             current_file = self.first_capture + "-%d.jpg" % self.preview_index
             current_frame = cv2.imread(current_file, cv2.IMREAD_COLOR)
-            if self.config["flip_video"] is 1:
-                current_frame = imutils.rotate(current_frame, angle=180)
+            if current_frame is not None:
+                if self.config["flip_video"] is 1:
+                    current_frame = imutils.rotate(current_frame, angle=180)
 
-            if self.showing_live is False:
-                cv2.imshow("Output", current_frame)
+                if self.showing_live is False:
+                    cv2.imshow("Output", current_frame)
 
             self.preview_index = self.preview_index + 1
             self.last_preview_time = current_time
@@ -245,7 +258,6 @@ class LinedrawingTimelapse(Thread):
     def auto_canny(self, image, offset=0, sigma=0.33):
         v = np.median(image) + offset
         v = self.constrain(v, 0, 255)
-        print(v)
 
         lower = int(max(0, (1.0 - sigma) * v))
         upper = int(min(255, (1.0 + sigma) * v))
