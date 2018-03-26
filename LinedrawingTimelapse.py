@@ -100,7 +100,6 @@ class LinedrawingTimelapse(Thread):
 
         cv2.waitKey(10)
 
-
     def standby(self, img):
         output = np.zeros((240, 320, 1), np.uint8)
         # output = self.insert_centered_text(output, "Open peephole to start recording.")
@@ -144,7 +143,6 @@ class LinedrawingTimelapse(Thread):
             self.countdown = None
             self.mode = 0
 
-
     def recording(self, img):
         # get current timelapse frequency
         timelapse_frequency = self.get_timelapse_frequency(img)
@@ -182,7 +180,7 @@ class LinedrawingTimelapse(Thread):
             self.last_preview_time = current_time
 
         # show / hide live image
-        if GPIO.input(self.btn_main) == False:
+        if GPIO.input(self.btn_main) is False:
             self.showing_live = not self.showing_live
             self.live_start_time = current_time
             time.sleep(0.2)
@@ -209,17 +207,17 @@ class LinedrawingTimelapse(Thread):
                 cv2.imshow("Output", live_frame)
 
             # adjust auto canny
-            if GPIO.input(self.btn2) == False:
+            if GPIO.input(self.btn2) is False:
                 self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
                 self.current_info_text = self.graphic_less_lines
                 self.live_start_time = time.time()
                 time.sleep(0.1)
-            elif GPIO.input(self.btn4) == False:
+            elif GPIO.input(self.btn4) is False:
                 self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
                 self.current_info_text = self.graphic_more_lines
                 self.live_start_time = time.time()
                 time.sleep(0.1)
-            elif GPIO.input(self.btn3) == False:
+            elif GPIO.input(self.btn3) is False:
                 self.canny_offset = 0
                 self.current_info_text = self.graphic_default_lines
                 self.live_start_time = time.time()
@@ -237,8 +235,8 @@ class LinedrawingTimelapse(Thread):
             self.mode = 0
 
     def is_peephole_open(self, g):
-        fixed_lines = cv2.Canny(g, self.config["canny_threshold"], self.config["canny_ratio"] * self.config["canny_threshold"],
-                          apertureSize=self.config["canny_aperturesize"])
+        fixed_lines = cv2.Canny(g, self.config["canny_threshold"], self.config["canny_ratio"] *
+                                self.config["canny_threshold"], apertureSize=self.config["canny_aperturesize"])
         non_zeros = cv2.countNonZero(fixed_lines)
 
         if non_zeros <= self.config["peephole_threshold"]:
@@ -264,14 +262,15 @@ class LinedrawingTimelapse(Thread):
     def insert_centered_text(self, img, txt, on_rectangle=False, size=0.5, stroke=1):
         textsize, _ = cv2.getTextSize(txt, self.font, size, stroke)
         h, w = img.shape[:2]
-        xPos = (w - textsize[0]) / 2
-        yPos = (h - textsize[1]) / 2
+        x_pos = (w - textsize[0]) / 2
+        y_pos = (h - textsize[1]) / 2
         if on_rectangle is True:
-            cv2.rectangle(img, (xPos - 1, yPos - textsize[1]), (xPos + textsize[0] + 1, yPos + 1), (0), -1)
-        cv2.putText(img, txt, (xPos, yPos), self.font, size, (255), stroke, cv2.LINE_AA)
+            cv2.rectangle(img, (x_pos - 1, y_pos - textsize[1]), (x_pos + textsize[0] + 1, y_pos + 1), 0, -1)
+        cv2.putText(img, txt, (x_pos, y_pos), self.font, size, 255, stroke, cv2.LINE_AA)
         return img
 
-    def save_mp4(self, f):
+    @staticmethod
+    def save_mp4(f):
         subprocess.Popen(["avconv", "-r", "2", "-start_number", "1", "-i", f + "-%d.jpg", "-b:v",
                           "1000k", f + ".mp4"])
 
@@ -318,9 +317,9 @@ def main():
 
     print("[INFO] Started main.")
 
-    timelapseInstance = LinedrawingTimelapse(config)
-    timelapseInstance.run()
+    timelapse_instance = LinedrawingTimelapse(config)
+    timelapse_instance.run()
+
 
 if __name__ == '__main__':
     main()
-
