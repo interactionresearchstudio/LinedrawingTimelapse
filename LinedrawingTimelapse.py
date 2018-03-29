@@ -28,6 +28,7 @@ class LinedrawingTimelapse(Thread):
         self.vs = PiVideoStream().start()
         time.sleep(self.config["camera_warmup_time"])
 
+        # Variable initialisation
         self.mode = 0
         self.lines = None
         self.avg = None
