@@ -1,7 +1,7 @@
 {
     "camera_warmup_time": 2.5,
     "mirror_camera": 1,
-    "flip_video": 1,
+    "flip_video": 0,
     "cv_width": 500,
     "peephole_threshold": 150,
     "delta_threshold": 0.1,

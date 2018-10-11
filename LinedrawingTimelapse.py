@@ -1,16 +1,18 @@
 #!/usr/bin/env python
-
 import cv2
-import picamera
 import imutils
 import numpy as np
 import json
 import time
 import datetime
-import os
 import subprocess
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+    gpio_exists = True
+except ImportError:
+    gpio_exists = False
 from threading import Thread
+from CameraController import CameraController
 
 
 class LinedrawingTimelapse(Thread):
@@ -21,12 +23,13 @@ class LinedrawingTimelapse(Thread):
         self.config = configuration
 
         # Create full screen OpenCV window.
-        cv2.namedWindow("Output", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty("Output", cv2.WND_PROP_FULLSCREEN, 1)
+        if gpio_exists:
+            cv2.namedWindow("Output", cv2.WND_PROP_FULLSCREEN)
+            cv2.setWindowProperty("Output", cv2.WND_PROP_FULLSCREEN, 1)
 
         # Start video stream.
-        self.vs = PiVideoStream().start()
-        time.sleep(self.config["camera_warmup_time"])
+        self.cam = CameraController.CameraController()
+        self.cam.start()
 
         # Variable initialisation
         self.mode = 0
@@ -45,6 +48,7 @@ class LinedrawingTimelapse(Thread):
         self.current_info_text = None
         self.live_start_time = time.time()
         self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.key_pressed = None
 
         # Setup buttons
         self.btn1 = 17
@@ -52,12 +56,13 @@ class LinedrawingTimelapse(Thread):
         self.btn3 = 23
         self.btn4 = 27
         self.btn_main = self.btn1
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        GPIO.setup(self.btn1, GPIO.IN, GPIO.PUD_UP)
-        GPIO.setup(self.btn2, GPIO.IN, GPIO.PUD_UP)
-        GPIO.setup(self.btn3, GPIO.IN, GPIO.PUD_UP)
-        GPIO.setup(self.btn4, GPIO.IN, GPIO.PUD_UP)
+        if gpio_exists:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+            GPIO.setup(self.btn1, GPIO.IN, GPIO.PUD_UP)
+            GPIO.setup(self.btn2, GPIO.IN, GPIO.PUD_UP)
+            GPIO.setup(self.btn3, GPIO.IN, GPIO.PUD_UP)
+            GPIO.setup(self.btn4, GPIO.IN, GPIO.PUD_UP)
 
         self.anim_lenscap = ["assets/lensecap_white_1.png", "assets/lensecap_white_2.png"]
         self.anim_starting = ["assets/recording_in_1.png", "assets/recording_in_2.png", "assets/recording_in_3.png",
@@ -68,19 +73,15 @@ class LinedrawingTimelapse(Thread):
         self.graphic_live_preview = "assets/live_preview.png"
 
     def run(self):
-        with picamera.PiCamera() as camera:
-            camera.resolution = (320, 240)
-            camera.framerate = 24
-            time.sleep(2)
-
-            while not self.cancelled:
-                new_frame = np.empty((240*320*3,), dtype=np.uint8)
-                camera.capture(new_frame, 'bgr')
-                new_frame = new_frame.reshape((240, 320, 3))
+        while not self.cancelled:
+            new_frame = self.cam.get_image()
+            if new_frame is not None:
                 self.update(new_frame)
+            else:
+                print("Got None image.")
 
     def cancel(self):
-        self.vs.stop()
+        self.cam.stop()
         cv2.destroyAllWindows()
         self.cancelled = True
 
@@ -105,7 +106,9 @@ class LinedrawingTimelapse(Thread):
             if self.is_peephole_open(gray) is False:
                 self.mode = 0
 
-        cv2.waitKey(10)
+        self.key_pressed = cv2.waitKey(10)
+        if self.key_pressed == 27:
+            self.cancel()
 
     def standby(self, img):
         output = np.zeros((240, 320, 1), np.uint8)
@@ -144,6 +147,7 @@ class LinedrawingTimelapse(Thread):
 
         if self.config["flip_video"] is 1:
             output = imutils.rotate(output, angle=180)
+
         cv2.imshow("Output", output)
 
         if self.is_peephole_open(img) is False:
@@ -187,10 +191,16 @@ class LinedrawingTimelapse(Thread):
             self.last_preview_time = current_time
 
         # show / hide live image
-        if GPIO.input(self.btn_main) is False:
-            self.showing_live = not self.showing_live
-            self.live_start_time = current_time
-            time.sleep(0.2)
+        if gpio_exists:
+            if GPIO.input(self.btn_main) is False:
+                self.showing_live = not self.showing_live
+                self.live_start_time = current_time
+                time.sleep(0.2)
+        else:
+            if self.key_pressed == ord('4'):
+                self.showing_live = not self.showing_live
+                self.live_start_time = current_time
+                time.sleep(0.2)
 
         # live mode
         if self.showing_live is True:
@@ -214,28 +224,47 @@ class LinedrawingTimelapse(Thread):
                 cv2.imshow("Output", live_frame)
 
             # adjust auto canny
-            if GPIO.input(self.btn2) is False:
-                self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
-                self.current_info_text = self.graphic_less_lines
-                self.live_start_time = time.time()
-                time.sleep(0.1)
-            elif GPIO.input(self.btn4) is False:
-                self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
-                self.current_info_text = self.graphic_more_lines
-                self.live_start_time = time.time()
-                time.sleep(0.1)
-            elif GPIO.input(self.btn3) is False:
-                self.canny_offset = 0
-                self.current_info_text = self.graphic_default_lines
-                self.live_start_time = time.time()
-                time.sleep(0.1)
+            if gpio_exists:
+                if GPIO.input(self.btn2) is False:
+                    self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
+                    self.current_info_text = self.graphic_less_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+                elif GPIO.input(self.btn4) is False:
+                    self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
+                    self.current_info_text = self.graphic_more_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+                elif GPIO.input(self.btn3) is False:
+                    self.canny_offset = 0
+                    self.current_info_text = self.graphic_default_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+            else:
+                if self.key_pressed == ord('1'):
+                    self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
+                    self.current_info_text = self.graphic_less_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+                if self.key_pressed == ord('2'):
+                    self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
+                    self.current_info_text = self.graphic_more_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+                if self.key_pressed == ord('3'):
+                    self.canny_offset = 0
+                    self.current_info_text = self.graphic_default_lines
+                    self.live_start_time = time.time()
+                    time.sleep(0.1)
+
 
             # timeout live mode
             if current_time - self.live_start_time >= self.config["live_timeout"]:
                 self.showing_live = False
 
         if self.is_peephole_open(img) is False:
-            self.save_mp4(self.first_capture)
+            if gpio_exists:
+                self.save_mp4(self.first_capture)
             self.showing_live = False
             self.canny_offset = 0
             self.first_capture = None
@@ -319,7 +348,7 @@ class LinedrawingTimelapse(Thread):
 
 
 def main():
-    os.chdir("/home/pi/LinedrawingTimelapse")
+    #os.chdir("/home/pi/LinedrawingTimelapse")
     config = json.load(open("conf.json"))
 
     print("[INFO] Started main.")
