@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import cv2
+import picamera
 import imutils
-from imutils.video.pivideostream import PiVideoStream
 import numpy as np
 import json
 import time
@@ -68,17 +68,23 @@ class LinedrawingTimelapse(Thread):
         self.graphic_live_preview = "assets/live_preview.png"
 
     def run(self):
-        while not self.cancelled:
-            self.update()
+        with picamera.PiCamera() as camera:
+            camera.resolution = (320, 240)
+            camera.framerate = 24
+            time.sleep(2)
+
+            while not self.cancelled:
+                new_frame = np.empty((240*320*3,), dtype=np.uint8)
+                camera.capture(new_frame, 'bgr')
+                new_frame = new_frame.reshape((240, 320, 3))
+                self.update(new_frame)
 
     def cancel(self):
         self.vs.stop()
         cv2.destroyAllWindows()
         self.cancelled = True
 
-    def update(self):
-        frame = self.vs.read()
-        frame = imutils.resize(frame, width=320, height=240)
+    def update(self, frame):
 
         if self.config["mirror_camera"] is 1:
             frame = cv2.flip(frame, 1)
