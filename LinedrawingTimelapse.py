@@ -129,6 +129,7 @@ class LinedrawingTimelapse(Thread):
 
         if self.is_peephole_open(img) is True:
             self.mode = 1
+            logging.info("Peephole open. Starting...")
 
     def starting(self, img):
         output = self.lines
@@ -150,6 +151,7 @@ class LinedrawingTimelapse(Thread):
             # end countdown
             self.countdown = None
             self.mode = 2
+            logging.info("Recording...")
 
         if self.config["flip_video"] is 1:
             output = imutils.rotate(output, angle=180)
