@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import cv2
 import imutils
+import os
 import numpy as np
 import json
 import time
@@ -197,7 +198,7 @@ class LinedrawingTimelapse(Thread):
                 self.live_start_time = current_time
                 time.sleep(0.2)
         else:
-            if self.key_pressed == ord('4'):
+            if self.key_pressed == ord('1'):
                 self.showing_live = not self.showing_live
                 self.live_start_time = current_time
                 time.sleep(0.2)
@@ -241,12 +242,12 @@ class LinedrawingTimelapse(Thread):
                     self.live_start_time = time.time()
                     time.sleep(0.1)
             else:
-                if self.key_pressed == ord('1'):
+                if self.key_pressed == ord('2'):
                     self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_less_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
-                if self.key_pressed == ord('2'):
+                if self.key_pressed == ord('4'):
                     self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_more_lines
                     self.live_start_time = time.time()
@@ -256,7 +257,6 @@ class LinedrawingTimelapse(Thread):
                     self.current_info_text = self.graphic_default_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
-
 
             # timeout live mode
             if current_time - self.live_start_time >= self.config["live_timeout"]:
@@ -348,7 +348,8 @@ class LinedrawingTimelapse(Thread):
 
 
 def main():
-    #os.chdir("/home/pi/LinedrawingTimelapse")
+    if gpio_exists:
+        os.chdir("/home/pi/LinedrawingTimelapse")
     config = json.load(open("conf.json"))
 
     print("[INFO] Started main.")
