@@ -14,6 +14,7 @@ except ImportError:
     gpio_exists = False
 from threading import Thread
 from CameraController import CameraController
+import logging
 
 
 class LinedrawingTimelapse(Thread):
@@ -22,6 +23,9 @@ class LinedrawingTimelapse(Thread):
         self.cancelled = False
 
         self.config = configuration
+
+        # Logging
+        logging.basicConfig(filename='linedrawingtimelapse.log', level=logging.DEBUG)
 
         # Create full screen OpenCV window.
         if gpio_exists:
@@ -58,6 +62,7 @@ class LinedrawingTimelapse(Thread):
         self.btn4 = 27
         self.btn_main = self.btn1
         if gpio_exists:
+            logging.info("GPIO exists. Setting up pins...")
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
             GPIO.setup(self.btn1, GPIO.IN, GPIO.PUD_UP)
@@ -194,11 +199,13 @@ class LinedrawingTimelapse(Thread):
         # show / hide live image
         if gpio_exists:
             if GPIO.input(self.btn_main) is False:
+                logging.info("Switched to / from Live mode")
                 self.showing_live = not self.showing_live
                 self.live_start_time = current_time
                 time.sleep(0.2)
         else:
             if self.key_pressed == ord('1'):
+                logging.info("Switched to / from Live mode")
                 self.showing_live = not self.showing_live
                 self.live_start_time = current_time
                 time.sleep(0.2)
@@ -227,32 +234,38 @@ class LinedrawingTimelapse(Thread):
             # adjust auto canny
             if gpio_exists:
                 if GPIO.input(self.btn2) is False:
+                    logging.info("Less lines")
                     self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_less_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
                 elif GPIO.input(self.btn4) is False:
+                    logging.info("More lines")
                     self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_more_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
                 elif GPIO.input(self.btn3) is False:
+                    logging.info("Default lines")
                     self.canny_offset = 0
                     self.current_info_text = self.graphic_default_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
             else:
                 if self.key_pressed == ord('2'):
+                    logging.info("Less lines")
                     self.canny_offset = self.canny_offset + self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_less_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
                 if self.key_pressed == ord('4'):
+                    logging.info("More lines")
                     self.canny_offset = self.canny_offset - self.config["canny_offset_step"]
                     self.current_info_text = self.graphic_more_lines
                     self.live_start_time = time.time()
                     time.sleep(0.1)
                 if self.key_pressed == ord('3'):
+                    logging.info("Default lines")
                     self.canny_offset = 0
                     self.current_info_text = self.graphic_default_lines
                     self.live_start_time = time.time()
