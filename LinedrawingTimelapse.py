@@ -58,10 +58,10 @@ class LinedrawingTimelapse(Thread):
         # Setup buttons
         if gpio_exists:
             logging.info("GPIO exists. Setting up pins...")
-            self.btn1 = Button(27)
-            self.btn2 = Button(23)
-            self.btn3 = Button(22)
-            self.btn4 = Button(17)
+            self.btn1 = Button(17)
+            self.btn2 = Button(27)
+            self.btn3 = Button(23)
+            self.btn4 = Button(22)
             self.btn_main = self.btn1
 
         self.anim_lenscap = ["assets/lensecap_white_1.png", "assets/lensecap_white_2.png"]
