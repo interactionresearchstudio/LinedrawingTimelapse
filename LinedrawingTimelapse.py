@@ -274,10 +274,25 @@ class LinedrawingTimelapse(Thread):
         if self.is_peephole_open(img) is False:
             if gpio_exists:
                 self.save_mp4(self.first_capture)
-            self.showing_live = False
-            self.canny_offset = 0
-            self.first_capture = None
+
+            # Full reset
             self.mode = 0
+            self.lines = None
+            self.avg = None
+            self.canny_offset = 0
+            self.is_recording = False
+            self.last_capture_time = time.time()
+            self.last_preview_time = time.time()
+            self.last_countdown_time = time.time()
+            self.capture_index = 0
+            self.preview_index = 0
+            self.first_capture = None
+            self.countdown = None
+            self.showing_live = False
+            self.current_info_text = None
+            self.live_start_time = time.time()
+            self.font = cv2.FONT_HERSHEY_SIMPLEX
+            self.key_pressed = None
 
     def is_peephole_open(self, g):
         fixed_lines = cv2.Canny(g, self.config["canny_threshold"], self.config["canny_ratio"] *
