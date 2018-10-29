@@ -71,6 +71,7 @@ class LinedrawingTimelapse(Thread):
         self.graphic_less_lines = "assets/less_lines.png"
         self.graphic_more_lines = "assets/more_lines.png"
         self.graphic_live_preview = "assets/live_preview.png"
+        self.graphic_loop = "assets/loop.png"
 
     def run(self):
         while not self.cancelled:
@@ -182,6 +183,12 @@ class LinedrawingTimelapse(Thread):
 
             current_file = self.first_capture + "-%d.jpg" % self.preview_index
             current_frame = cv2.imread(current_file, cv2.IMREAD_COLOR)
+
+            # Show loop icon if the timelapse is longer than 30 seconds and it's looped over.
+            if self.preview_index < 2 and self.capture_index * self.config["timelapse_preview_speed"] >= 30:
+                current_frame = self.paste_png(current_frame, self.graphic_loop)
+
+            # Show frame
             if current_frame is not None:
                 if self.config["flip_video"] is 1:
                     current_frame = imutils.rotate(current_frame, angle=180)
