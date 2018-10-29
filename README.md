@@ -10,7 +10,7 @@ A time lapse that uses Canny edge detection to produce a line drawing effect. Fo
 
 ## Installation
 
-###Raspberry Pi
+### Raspberry Pi
 In order to install all the prerequisites on the Raspberry Pi, please use the 
 [VisionCam install scripts](https://github.com/interactionresearchstudio/VisionCamInstallScripts).
 All scripts, automatic Xsession starting, OpenCV compiling is taken care of for you. 
