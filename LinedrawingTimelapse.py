@@ -45,6 +45,7 @@ class LinedrawingTimelapse(Thread):
         self.last_capture_time = time.time()
         self.last_preview_time = time.time()
         self.last_countdown_time = time.time()
+        self.last_live_time = 0
         self.capture_index = 0
         self.preview_index = 0
         self.first_capture = None
@@ -76,10 +77,12 @@ class LinedrawingTimelapse(Thread):
         self.anim_starting = ["assets/recording_in_1.png", "assets/recording_in_2.png", "assets/recording_in_3.png",
                               "assets/recording_in_4.png", "assets/recording_in_5.png"]
         self.graphic_default_lines = "assets/default_lines.png"
-        self.graphic_less_lines = "assets/less_lines.png"
+        self.graphic_less_lines = "assets/fewer_lines.png"
         self.graphic_more_lines = "assets/more_lines.png"
-        self.graphic_live_preview = "assets/live_preview.png"
+        self.graphic_live_preview = "assets/setup_mode.png"
         self.graphic_loop = "assets/loop.png"
+        self.graphic_recording_mode = "assets/recording_mode.png"
+        self.graphic_recording_warning = "assets/recording_warning.png"
 
     def run(self):
         while not self.cancelled:
@@ -195,6 +198,11 @@ class LinedrawingTimelapse(Thread):
             # Show loop icon if the timelapse is longer than 30 seconds and it's looped over.
             if self.preview_index < 2 and self.capture_index * self.config["timelapse_preview_speed"] >= 30:
                 current_frame = self.paste_png(current_frame, self.graphic_loop)
+            else:
+                if current_time - self.live_start_time <= self.config['recording_warning_timeout'] and self.showing_live is False:
+                    current_frame = self.paste_png(current_frame, self.graphic_recording_warning)
+                else:
+                    current_frame = self.paste_png(current_frame, self.graphic_recording_mode)
 
             # Show frame
             if current_frame is not None:
@@ -213,12 +221,14 @@ class LinedrawingTimelapse(Thread):
                 logging.info("Switched to / from Live mode")
                 self.showing_live = not self.showing_live
                 self.live_start_time = current_time
+                self.current_info_text = None
                 time.sleep(0.2)
         else:
             if self.key_pressed == ord('1'):
                 logging.info("Switched to / from Live mode")
                 self.showing_live = not self.showing_live
                 self.live_start_time = current_time
+                self.current_info_text = None
                 time.sleep(0.2)
 
         # live mode
@@ -233,6 +243,8 @@ class LinedrawingTimelapse(Thread):
                 if current_time - self.live_start_time <= self.config["info_text_timeout"]:
                     if self.current_info_text is not None:
                         live_frame = self.paste_png(live_frame, self.current_info_text)
+                    else:
+                        live_frame = self.paste_png(live_frame, self.graphic_live_preview)
                 else:
                     self.current_info_text = None
                     live_frame = self.paste_png(live_frame, self.graphic_live_preview)
