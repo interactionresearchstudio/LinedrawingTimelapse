@@ -60,29 +60,38 @@ class LinedrawingTimelapse(Thread):
         if gpio_exists:
             logging.info("GPIO exists. Setting up pins...")
 
-            #if self.config["flip_video"] is 1:
-            #self.btn1 = Button(27)
-            #self.btn2 = Button(17)
-            #self.btn3 = Button(22)
-            #self.btn3 = Button(23)
-            #else:
-            self.btn1 = Button(17)
-            self.btn2 = Button(27)
-            self.btn3 = Button(23)
-            self.btn4 = Button(22)
+            if self.config["flip_video"] is 1:
+                self.btn1 = Button(27)
+                self.btn2 = Button(17)
+                self.btn3 = Button(22)
+                self.btn4 = Button(23)
+            else:
+                self.btn1 = Button(17)
+                self.btn2 = Button(27)
+                self.btn3 = Button(23)
+                self.btn4 = Button(22)
 
             self.btn_main = self.btn1
 
         self.anim_lenscap = ["assets/lensecap_white_1.png", "assets/lensecap_white_2.png"]
         self.anim_starting = ["assets/recording_in_1.png", "assets/recording_in_2.png", "assets/recording_in_3.png",
                               "assets/recording_in_4.png", "assets/recording_in_5.png"]
-        self.graphic_default_lines = "assets/default_lines.png"
-        self.graphic_less_lines = "assets/fewer_lines.png"
-        self.graphic_more_lines = "assets/more_lines.png"
-        self.graphic_live_preview = "assets/setup_mode.png"
-        self.graphic_loop = "assets/loop.png"
-        self.graphic_recording_mode = "assets/recording_mode.png"
-        self.graphic_recording_warning = "assets/recording_warning.png"
+        if self.config["flip_video"] is 1:
+            self.graphic_default_lines = "assets/tall_default_lines.png"
+            self.graphic_less_lines = "assets/tall_fewer_lines.png"
+            self.graphic_more_lines = "assets/tall_more_lines.png"
+            self.graphic_live_preview = "assets/tall_setup_mode.png"
+            self.graphic_loop = "assets/tall_loop.png"
+            self.graphic_recording_mode = "assets/tall_recording_mode.png"
+            self.graphic_recording_warning = "assets/tall_recording_warning.png"
+        else:
+            self.graphic_default_lines = "assets/default_lines.png"
+            self.graphic_less_lines = "assets/fewer_lines.png"
+            self.graphic_more_lines = "assets/more_lines.png"
+            self.graphic_live_preview = "assets/setup_mode.png"
+            self.graphic_loop = "assets/loop.png"
+            self.graphic_recording_mode = "assets/recording_mode.png"
+            self.graphic_recording_warning = "assets/recording_warning.png"
 
     def run(self):
         while not self.cancelled:
